@@ -1,0 +1,12 @@
+@import "tailwindcss"; 
+
+body {
+  @apply bg-gray-100 text-gray-800 font-sans; /* Added font-sans for a common base */
+  -webkit-font-smoothing: antialiased; /* Smoother fonts */
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ensure SimpleMDE editor takes height properly if needed */
+.EasyMDEContainer .CodeMirror {
+  height: 100%; /* Or adjust as needed, often controlled by minHeight option */
+}
