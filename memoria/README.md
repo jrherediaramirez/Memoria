@@ -1,19 +1,54 @@
-# Memoria - Notes & Flashcards App
+# React + TypeScript + Vite
 
-Memoria is a web-only application that combines rich-text notes with Anki-style flashcards using spaced repetition.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Core Features
+Currently, two official plugins are available:
 
-1.  **Notes First**: Create, edit, and manage Markdown-like notes.
-2.  **Inline Flashcards**: Mark selections within notes as flashcards using a special syntax (`[[card:UUID|q:Question|a:Answer]]`).
-3.  **Spaced Repetition Review**: Cards are reviewed using the SM-2 algorithm with user feedback (Again / Hard / Good / Easy).
-4.  **Context Preview**: During review, users can view the parent note with the card's context highlighted.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## Tech Stack
+## Expanding the ESLint configuration
 
--   **UI**: React + Vite + TypeScript
--   **State Management**: Zustand
--   **Styling**: TailwindCSS
--   **Local Storage**: IndexedDB (via Dexie.js)
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## Project Structure
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
+```
+
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default tseslint.config({
+  plugins: {
+    // Add the react-x and react-dom plugins
+    'react-x': reactX,
+    'react-dom': reactDom,
+  },
+  rules: {
+    // other rules...
+    // Enable its recommended typescript rules
+    ...reactX.configs['recommended-typescript'].rules,
+    ...reactDom.configs.recommended.rules,
+  },
+})
+```
