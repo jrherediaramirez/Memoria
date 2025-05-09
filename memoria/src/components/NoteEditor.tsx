@@ -1,36 +1,55 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNoteStore } from '../stores/noteStore';
-import SimpleMDEEditor from 'react-simplemde-editor'; // Corrected import name
+import SimpleMDEEditor from 'react-simplemde-editor';
 import "easymde/dist/easymde.min.css";
 import { debounce } from 'lodash-es';
 import { v4 as uuidv4 } from 'uuid';
 import MakeCardModal from './MakeCardModal';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../services/storageService';
-import EasyMDE from 'easymde'; // For type of instance
+import ReactMarkdown from 'react-markdown';
 
-const editorToolbarOptions: EasyMDE.ToolbarIcon[] = [ // Type EasyMDE toolbar options
+// Import types safely
+import type { Options } from 'easymde';
+
+// Create a type for the EasyMDE instance
+interface EasyMDEInstance {
+  codemirror: {
+    getDoc: () => any;
+    getSelection: () => string;
+    replaceSelection: (text: string) => void;
+    scrollIntoView: (position: any, margin?: number) => void;
+    markText: (from: any, to: any, options: any) => any;
+    posFromIndex: (index: number) => any;
+    getValue: () => string;
+  };
+  toTextArea: () => void;
+}
+
+// Define toolbar options with proper typing
+const editorToolbarOptions = [
   "bold", "italic", "heading", "|",
   "quote", "unordered-list", "ordered-list", "|",
-  "link", "image", "|", // Consider removing image if not fully supported/desired
+  "link", "image", "|",
   "preview", "side-by-side", "fullscreen", "|",
   "guide"
-];
+] as const;
 
-export default function NoteEditor() {
+export default function EnhancedNoteEditor() {
   const { activeNote, updateNoteContent, deleteNote, setActiveNote } = useNoteStore();
   const [editorContent, setEditorContent] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTextForCard, setSelectedTextForCard] = useState('');
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
   
-  const simpleMdeInstanceRef = useRef<EasyMDE | null>(null);
-  const editorWrapperRef = useRef<HTMLDivElement>(null); // For dynamic height
+  const simpleMdeInstanceRef = useRef<EasyMDEInstance | null>(null);
+  const editorWrapperRef = useRef<HTMLDivElement>(null);
 
   const location = useLocation();
   const navigate = useNavigate();
   const { noteId: noteIdFromParams } = useParams<{ noteId: string }>();
 
-  const getMdeInstance = useCallback((instance: EasyMDE) => {
+  const getMdeInstance = useCallback((instance: EasyMDEInstance) => {
     simpleMdeInstanceRef.current = instance;
   }, []);
 
@@ -45,14 +64,13 @@ export default function NoteEditor() {
     }
   }, [activeNote]);
 
-
   useEffect(() => {
     if (activeNote && simpleMdeInstanceRef.current && location.state?.highlightCardId) {
       const cardIdToHighlight = location.state.highlightCardId;
       
       db.getCard(cardIdToHighlight).then(cardToHighlight => {
         if (cardToHighlight && cardToHighlight.noteId === activeNote.id) {
-          const cm = simpleMdeInstanceRef.current!.codemirror; // Assert not null
+          const cm = simpleMdeInstanceRef.current!.codemirror;
           const doc = cm.getDoc();
           
           let highlightSuccess = false;
@@ -71,7 +89,7 @@ export default function NoteEditor() {
             }
           }
           
-          if (!highlightSuccess && cardToHighlight.markerText) { // Fallback to markerText
+          if (!highlightSuccess && cardToHighlight.markerText) {
             const currentContent = doc.getValue();
             const markerIdx = currentContent.indexOf(cardToHighlight.markerText);
             if (markerIdx !== -1) {
@@ -89,16 +107,16 @@ export default function NoteEditor() {
             }
           }
           
-          navigate(location.pathname, { replace: true, state: {} }); // Clear state
+          navigate(location.pathname, { replace: true, state: {} });
         }
       });
     }
-  }, [activeNote, location.state, navigate, location.pathname]); // Removed simpleMdeInstanceRef from deps to avoid re-triggering on instance change if content is same
+  }, [activeNote, location.state, navigate, location.pathname]);
 
   const debouncedUpdate = useCallback(
     debounce((noteId: string, newContent: string) => {
       updateNoteContent(noteId, newContent);
-    }, 1200), // Increased debounce time slightly
+    }, 1200),
     [updateNoteContent]
   );
 
@@ -119,7 +137,6 @@ export default function NoteEditor() {
   const handleDelete = () => {
     if (activeNote && window.confirm(`Are you sure you want to delete "${activeNote.title}"? This will also delete all its flashcards.`)) {
       const idToDelete = activeNote.id;
-      // Navigate away or select next note BEFORE deleting
       const notes = useNoteStore.getState().notes;
       const currentIndex = notes.findIndex(n => n.id === idToDelete);
       let nextNoteId: string | null = null;
@@ -131,14 +148,14 @@ export default function NoteEditor() {
         navigate(`/notes/${nextNoteId}`, { replace: true });
       } else {
         navigate('/', { replace: true });
-        setActiveNote(null); // Ensure activeNote is cleared if no other notes
+        setActiveNote(null);
       }
       deleteNote(idToDelete);
     }
   };
 
   const handleMakeCard = () => {
-    if (simpleMdeInstanceRef.current) {
+    if (simpleMdeInstanceRef.current && viewMode === 'edit') {
       const cm = simpleMdeInstanceRef.current.codemirror;
       setSelectedTextForCard(cm.getSelection());
       setIsModalOpen(true);
@@ -146,7 +163,7 @@ export default function NoteEditor() {
   };
 
   const handleCreateCardInEditor = (front: string, back: string) => {
-    if (!activeNote || !simpleMdeInstanceRef.current) return;
+    if (!activeNote || !simpleMdeInstanceRef.current || viewMode !== 'edit') return;
 
     const cardId = uuidv4();
     const marker = `[[card:${cardId}|q:${front}|a:${back}]]`;
@@ -154,15 +171,24 @@ export default function NoteEditor() {
     const cm = simpleMdeInstanceRef.current.codemirror;
     cm.replaceSelection(marker);
     
-    // The content change will trigger onEditorChange, which will save and sync cards.
     setIsModalOpen(false);
-    // Optionally trigger save immediately if debounce is too long for this action
-    // handleManualSave(); 
   };
 
-  const editorOptions = useMemo((): EasyMDE.Options => {
+  const toggleViewMode = () => {
+    setViewMode(prev => prev === 'edit' ? 'preview' : 'edit');
+  };
+
+  // Process content for preview - replace card markers with friendly UI
+  const processedContent = useMemo(() => {
+    return editorContent.replace(
+      /\[\[card:([0-9a-fA-F-]{36})\|q:(.*?)\|a:(.*?)\]\]/g,
+      '**📝 Flashcard:** $2'
+    );
+  }, [editorContent]);
+
+  const editorOptions = useMemo((): Options => {
     return {
-      autofocus: false, // Can be annoying, set to false
+      autofocus: false,
       spellChecker: false,
       placeholder: "Start writing your note here...",
       toolbar: [
@@ -170,28 +196,20 @@ export default function NoteEditor() {
         "|",
         {
           name: "make-card",
-          action: () => handleMakeCard(), // Already memoized or stable
+          action: () => handleMakeCard(),
           className: "fa fa-clone", 
           title: "Make Flashcard (Ctrl+Alt+C)",
         }
       ],
-      minHeight: "300px", // Default min height
-      maxHeight: "calc(100vh - 180px)", // Adjust based on surrounding elements
-      // To make it truly dynamic height based on parent:
-      // You might need to set EasyMDEContainer and CodeMirror elements to height: 100% via CSS
-      // and ensure the parent of SimpleMDEEditor has a defined height and is a flex container.
-      // For now, maxHeight provides a good limit.
+      minHeight: "300px",
+      maxHeight: "calc(100vh - 180px)",
       shortcuts: {
-        "toggleMakeCard": "Ctrl-Alt-C", // Custom shortcut example
+        "toggleMakeCard": "Ctrl-Alt-C",
       },
-      // keyMap: { // For custom keymap if needed
-      //   "Ctrl-Alt-C": () => handleMakeCard(),
-      // }
     };
-  }, []); // Removed handleMakeCard from deps as it's stable via useCallback
+  }, []);
 
   if (!activeNote && noteIdFromParams) {
-    // If there's a noteId in params but activeNote is null (e.g. after delete or invalid ID)
     return <div className="flex-1 p-8 flex items-center justify-center text-gray-500">Loading note or note not found...</div>;
   }
   if (!activeNote) {
@@ -202,10 +220,16 @@ export default function NoteEditor() {
     <div className="flex-1 p-3 md:p-4 flex flex-col h-full bg-white shadow-sm overflow-hidden">
       <div className="mb-2 flex justify-between items-center flex-shrink-0">
         <h2 className="text-lg md:text-xl font-semibold truncate" title={activeNote.title}>{activeNote.title}</h2>
-        <div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={toggleViewMode}
+            className="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-1.5 px-3 rounded-md text-sm shadow-sm transition-colors"
+          >
+            {viewMode === 'edit' ? 'Preview' : 'Edit'}
+          </button>
           <button
             onClick={handleManualSave}
-            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-1.5 px-3 rounded-md mr-2 text-sm shadow-sm transition-colors"
+            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-1.5 px-3 rounded-md text-sm shadow-sm transition-colors"
           >
             Save Note
           </button>
@@ -217,14 +241,20 @@ export default function NoteEditor() {
           </button>
         </div>
       </div>
-      <div ref={editorWrapperRef} className="flex-grow relative min-h-0"> {/* Key for editor height */}
-        <SimpleMDEEditor
-          className="h-full w-full" // Make editor fill this div
-          value={editorContent}
-          onChange={onEditorChange}
-          options={editorOptions}
-          getMdeInstance={getMdeInstance}
-        />
+      <div ref={editorWrapperRef} className="flex-grow relative min-h-0">
+        {viewMode === 'edit' ? (
+          <SimpleMDEEditor
+            className="h-full w-full"
+            value={editorContent}
+            onChange={onEditorChange}
+            options={editorOptions}
+            getMdeInstance={getMdeInstance}
+          />
+        ) : (
+          <div className="h-full w-full p-4 overflow-auto prose max-w-none">
+            <ReactMarkdown>{processedContent}</ReactMarkdown>
+          </div>
+        )}
       </div>
       <MakeCardModal
         isOpen={isModalOpen}

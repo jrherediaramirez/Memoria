@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useReviewStore } from '../stores/reviewStore';
+import { useReviewStore } from '../stores/reviewStore.ts';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 

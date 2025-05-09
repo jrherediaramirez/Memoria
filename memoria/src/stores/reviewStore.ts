@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Card } from '../types';
+import type { Card } from '../types';
 import { db } from '../services/storageService';
 import { reviewEngine } from '../services/reviewEngine';
 

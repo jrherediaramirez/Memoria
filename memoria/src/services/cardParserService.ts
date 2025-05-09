@@ -1,5 +1,6 @@
 // No uuid import needed here as it's generated in NoteEditor
-import { Card, ParsedCardInfo } from '../types';
+// No uuid import needed here as it's generated in NoteEditor
+import type { Card, ParsedCardInfo } from '../types';
 import { db } from './storageService';
 
 // Regex to find card markers: [[card:UUID|q:Question|a:Answer]]

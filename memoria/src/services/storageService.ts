@@ -1,5 +1,5 @@
-import Dexie, { Table } from 'dexie';
-import { Note, Card } from '../types';
+import Dexie, { type Table } from 'dexie';
+import { type Note, type Card } from '../types';
 
 export class AppDB extends Dexie {
   notes!: Table<Note, string>; 

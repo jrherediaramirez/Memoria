@@ -1,5 +1,6 @@
-import { supermemo, Flashcard as Sm2FlashcardInputInternal } from 'supermemo2';
-import { Card, Sm2ReviewInput, Sm2ProcessedOutput } from '../types'; // Using our defined types
+import { supermemo, type Flashcard as Sm2FlashcardInputInternal } from 'supermemo2';
+import type { Card, Sm2ReviewInput, Sm2ProcessedOutput } from '../types'; // Using our defined types
+ // Using our defined types
 
 // Map UI quality (0-3) to SM-2 quality (0-5)
 // 0: Again -> SM-2 quality 0 (no recall)
